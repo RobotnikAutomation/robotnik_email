@@ -1,0 +1,11 @@
+smtp:
+  server: 'smtp.gmail.com'
+  port: 587
+  use_authentication: false
+  username: ''
+  password: ''
+  sender: 'sender@domain.com'
+  default_recipients:
+    - 'recipient1@domain.com'
+    - 'recipient2@domain.com'
+    - 'recipient3@domain.com'
