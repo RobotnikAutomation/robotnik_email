@@ -4,15 +4,38 @@ The robotnik_email package, email server to send messages through ROS
 
 ## Installation
 
-Clone this package on your workspace
+This package depens on the following packages:
+
+- robotnik_msgs[🔗](https://github.com/RobotnikAutomation/robotnik_msgs)
 
 ```
-cd ~/catkin_ws/src
+git clone https://github.com/RobotnikAutomation/robotnik_msgs
+```
+
+- rcomponent[🔗](https://github.com/RobotnikAutomation/rcomponent)
+
+```
+git clone https://github.com/RobotnikAutomation/rcomponent
+```
+
+Install the package:
+
+```
 git clone https://github.com/RobotnikAutomation/robotnik_email.git
-cd  ~/catkin_ws
-catkin_build
+```
+
+Install other ros dependencies:
+
+```
+rosdep install --from-path src --ignore-src -y -r
+```
+
+Build the package
+```
+catkin build
 source devel/setup.bash
 ```
+
 
 ## SMTP Configuration
 
@@ -125,28 +148,28 @@ It sends emails using a SMTP server
 
 ### 1.1 Parameters
 
-* ~smtp/server (string, default: smtp.gmail.com):
+* smtp/server (string, default: smtp.gmail.com):
    SMTP server address
 
- * ~smtp/port (int, default: 587):
+ * smtp/port (int, default: 587):
    SMTP server port  
 
- * ~smtp/sender (string, default: sender@domain.com):
+ * smtp/sender (string, default: sender@domain.com):
    Email from where the message is sent
 
- * ~smtp/use_authentication (bool, default: False):
+ * smtp/use_authentication (bool, default: False):
    Enable credentials when a SMTP needs them 
 
- * ~smtp/username (string, default: username):
+ * smtp/username (string, default: username):
    Name credentials
 
-  * ~smtp/password (string, default: password):
+  * smtp/password (string, default: password):
    Password credentials
 
-  * ~smtp/default_recipients (string[], default: recipient@domain.com):
+  * smtp/default_recipients (string[], default: recipient@domain.com):
     Default recipiens if the recipients field is empty when a message is sent.
 
-  * ~smtp/time_between_emails (int, default: 0):
+  * smtp/time_between_emails (int, default: 0):
     Time between one email and another to avoid overloads
  
 
