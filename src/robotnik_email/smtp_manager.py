@@ -27,14 +27,14 @@ class SMTPManager(RComponent):
         """Gets params from param server"""
         RComponent.ros_read_params(self)
 
-        self.smtp_server = rospy.get_param('~/smtp/server', 'smtp.gmail.com')
-        self.smtp_port = rospy.get_param('~/smtp/port', 587)
-        self.sender =  rospy.get_param('~/smtp/sender', 'sender@domain.com')
-        self.use_authentication = rospy.get_param('~/smtp/use_authentication', False)
-        self.username = rospy.get_param('~/smtp/username', 'username')
-        self.password = rospy.get_param('~/smtp/password', 'password')
-        self.default_recipients = rospy.get_param('~/smtp/default_recipients', 'recipient@domain.com')
-        self.time_between_emails = rospy.get_param('~/smtp/time_between_emails', 0)
+        self.smtp_server = rospy.get_param('smtp/server', 'smtp.gmail.com')
+        self.smtp_port = rospy.get_param('smtp/port', 587)
+        self.sender =  rospy.get_param('smtp/sender', 'sender@domain.com')
+        self.use_authentication = rospy.get_param('smtp/use_authentication', False)
+        self.username = rospy.get_param('smtp/username', 'username')
+        self.password = rospy.get_param('smtp/password', 'password')
+        self.default_recipients = rospy.get_param('smtp/default_recipients', 'recipient@domain.com')
+        self.time_between_emails = rospy.get_param('smtp/time_between_emails', 0)
 
     def ros_setup(self):
         """Creates and inits ROS components"""
