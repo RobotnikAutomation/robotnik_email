@@ -5,7 +5,8 @@
 	<arg name="desired_freq" default="10.0" />
 
 	<!-- Load smtp configuration -->
-	<rosparam file="$(find robotnik_email)/config/smtp_config.yaml" command="load" />
+	<arg name="smtp_config_path" default="$(find robotnik_email)/config/smtp_config.yaml" />
+	<rosparam file="$(arg smtp_config_path)" command="load" />
 
 	<!-- start smtp manager node -->
 	<node pkg="robotnik_email" name="smtp_manager" type="smtp_manager_node.py" output="screen">
