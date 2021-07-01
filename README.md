@@ -109,10 +109,8 @@ The following table describes each parameter:
 | username  | string  | username  | Name credentials   |
 | password  | string  | password  | Password credentials  |
 | sender  | string  | sender@domain.com    | Email from where the message is sent  |
-| default_recipients  | string[]  | recipient@domain.com  | Default recipiens if the recipients field is empty when a message is sent  |
-| time_between_emails | int | 0 | Time between one email and another to avoid overloads |
-
-
+| default_recipients  | string[]  | recipient@domain.com  |  If the recipients field is empty, gets these recipients  |
+| time_between_emails | int | 0 | Time between one email and another to avoid overloads (not implemented yet) |
 
 
 ## Bringup
