@@ -7,7 +7,7 @@ import rospy
 
 from rcomponent.rcomponent import *
 from robotnik_msgs.srv import SetString
-from robotnik_email.srv import SendAlarms, SendAlarmsResponse
+from robotnik_alarms_msgs.srv import SendAlarms, SendAlarmsResponse
 
 import smtplib
 from email.mime.text import MIMEText
@@ -36,13 +36,14 @@ class SMTPManager(RComponent):
         self.default_recipients = rospy.get_param('smtp/default_recipients', 'recipient@domain.com')
         self.time_between_emails = rospy.get_param('smtp/time_between_emails', 0)
 
+
     def ros_setup(self):
         """Creates and inits ROS components"""
 
         RComponent.ros_setup(self)
 
         # Service
-        self.send_email_service = rospy.Service('smtp_manager/send_email', SendAlarms, self.send_email_cb)
+        self.send_email_service = rospy.Service('robotnik_email/send', SendAlarms, self.send_email_cb)
         
         return 0
 

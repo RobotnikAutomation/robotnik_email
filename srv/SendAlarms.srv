@@ -1,6 +1,0 @@
-string[] recipients
-string subject
-string message
----
-bool success
-string msg
