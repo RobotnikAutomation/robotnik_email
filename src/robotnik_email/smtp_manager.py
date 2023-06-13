@@ -43,7 +43,7 @@ class SMTPManager(RComponent):
         RComponent.ros_setup(self)
 
         # Service
-        self.send_email_service = rospy.Service('robotnik_email/send', SendAlarms, self.send_email_cb)
+        self.send_email_service = rospy.Service('robotnik_email/send_email', SendAlarms, self.send_email_cb)
         
         return 0
 
@@ -106,7 +106,8 @@ class SMTPManager(RComponent):
     def send_email_cb(self, req):
 
         response = SendAlarmsResponse()
-        response.success = False
+        response.ret.success = False
+        response.ret.code = -1
 
         if self.smtp_connection():
 
@@ -116,28 +117,29 @@ class SMTPManager(RComponent):
 
                 if self.send_email(email):
                     
-                    response.msg = "Email sent from " + email["From"] + " to " + email["To"]
-                    response.success = True
+                    response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
+                    response.ret.success = True
+                    response.ret.code = 0
                     
                 else:
 
-                    response.msg = "The email could not be sent to the recipients, probably due to a mail server failure"
-            
+                    response.ret.message = "The email could not be sent to the recipients, probably due to a mail server failure"
+
             else:
-                response.msg = "The email can not be sent because it is malformed"
+                response.ret.message = "The email can not be sent because it is malformed"
         else:
 
-            response.msg = "Cannot connect to SMTP server " + str(self.smtp_server) + " with port " + str(self.smtp_port)
+            response.ret.message = "Cannot connect to SMTP server " + str(self.smtp_server) + " with port " + str(self.smtp_port)
 
         try:
             self.smtp_disconnection()
         except:
             pass
 
-        if response.success:
-            rospy.loginfo(response.msg)
-        else:
-            rospy.logerr(response.msg)
+        if (response.ret.success == True) or (response.ret.code == 0):
+            rospy.loginfo(response.ret.message)
+        elif (response.ret.success == False) or (response.ret.code == -1):
+            rospy.logerr(response.ret.message)
 
         return response
 
@@ -169,12 +171,10 @@ class SMTPManager(RComponent):
         email = MIMEMultipart("alternative")
   
         email["From"] = self.sender
-        email["Subject"] =  email_data.subject
-        email.attach(MIMEText(email_data.message, "html"))
+        email["Subject"] =  "default"
+        email.attach(MIMEText(email_data.status.message, "html"))
 
-        if email_data.subject == "":
-            rospy.logwarn("Subject email is empty")
-        if email_data.message == "":
+        if email_data.status.message == "":
             rospy.logwarn("Message email is empty")
 
         if '' in email_data.recipients or len(email_data.recipients) == 0:
