@@ -117,7 +117,7 @@ class SMTPManager(RComponent):
 
                 if self.send_email(email):
                     
-                    response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
+                    #response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
                     response.ret.success = True
                     response.ret.code = 0
                     
@@ -136,9 +136,9 @@ class SMTPManager(RComponent):
         except:
             pass
 
-        if (response.ret.success == True) or (response.ret.code == 0):
-            rospy.loginfo(response.ret.message)
-        elif (response.ret.success == False) or (response.ret.code == -1):
+        #if (response.ret.success == True) or (response.ret.code == 0):
+        #    rospy.loginfo(response.ret.message)
+        if (response.ret.success == False) or (response.ret.code == -1):
             rospy.logerr(response.ret.message)
 
         return response
@@ -191,7 +191,7 @@ class SMTPManager(RComponent):
     def send_email(self, email):
 
         try: 
-            print(email["To"])
+            #print(email["To"])
             self.smtp.sendmail(email["From"], email["To"].split(','), email.as_string())
             success = True
 
