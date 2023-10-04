@@ -22,6 +22,8 @@ class SMTPManager(RComponent):
     def __init__(self):
 
         RComponent.__init__(self)
+        
+        self.logger = self.initialize_logger()
 
     def ros_read_params(self):
         """Gets params from param server"""
@@ -50,11 +52,11 @@ class SMTPManager(RComponent):
     def init_state(self):
         
         if self.check_recipients(self.default_recipients) == False:
-            rospy.logerr("Default recipients are malformed")
+            self.logger.logerror("Default recipients are malformed", "")
             rospy.signal_shutdown("shutdown")
 
         if self.check_recipients(self.sender.split()) == False:
-            rospy.logerr("Sender is malformed")
+            self.logger.logerror("Sender is malformed", "")
             rospy.signal_shutdown("shutdown")
 
         return RComponent.init_state(self)
@@ -97,7 +99,7 @@ class SMTPManager(RComponent):
 
             if not re.search(regex, recipient):
 
-                rospy.logerr("%s is an invalid email", recipient)
+                self.logger.logerror(f"{recipient} is an invalid email", "")
                 valid = False
 
         return valid
@@ -118,6 +120,7 @@ class SMTPManager(RComponent):
                 if self.send_email(email):
                     
                     #response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
+                    self.logger.loginfo("Email sent from " + email["From"] + " to " + email["To"], "")
                     response.ret.success = True
                     response.ret.code = 0
                     
@@ -139,7 +142,7 @@ class SMTPManager(RComponent):
         #if (response.ret.success == True) or (response.ret.code == 0):
         #    rospy.loginfo(response.ret.message)
         if (response.ret.success == False) or (response.ret.code == -1):
-            rospy.logerr(response.ret.message)
+            self.logger.logerror(response.ret.message, "")
 
         return response
 
@@ -160,7 +163,7 @@ class SMTPManager(RComponent):
             success = True
 
         except Exception as e:
-            rospy.logerr("smtp_manager::smtp_connection -> Exception: %s", e)
+            self.logger.logerror(f"smtp_manager::smtp_connection -> Exception: {e}", "")
             success = False
 
         return success
@@ -175,7 +178,7 @@ class SMTPManager(RComponent):
         email.attach(MIMEText(email_data.status.message, "html"))
 
         if email_data.status.message == "":
-            rospy.logwarn("Message email is empty")
+            self.logger.logewarning("Message email is empty", "")
 
         if '' in email_data.recipients or len(email_data.recipients) == 0:
             email["To"] = ', '.join(self.default_recipients)
@@ -196,7 +199,7 @@ class SMTPManager(RComponent):
             success = True
 
         except Exception as e:
-            rospy.logerr("smtp_manager::send_email -> Exception: %s", e)
+            self.logger.logerror(f"smtp_manager::send_email -> Exception: {e}", "")
             success = False
         
         return success
