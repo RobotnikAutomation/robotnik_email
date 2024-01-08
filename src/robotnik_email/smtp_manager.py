@@ -149,7 +149,8 @@ class SMTPManager(RComponent):
 
     def smtp_connection(self):
 
-        self.smtp = smtplib.SMTP(timeout=20)
+        # self.smtp = smtplib.SMTP(timeout=20)
+        self.smtp = smtplib.SMTP(self.smtp_server)
         
         try:
             self.smtp.connect(self.smtp_server, self.smtp_port)
