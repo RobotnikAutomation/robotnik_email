@@ -175,7 +175,12 @@ class SMTPManager(RComponent):
         email = MIMEMultipart("alternative")
   
         email["From"] = self.sender
-        email["Subject"] =  "default"
+        
+        if email_data.status.description == "":
+            email["Subject"] = "default"
+        else:
+            email["Subject"] =  email_data.status.description
+            
         email.attach(MIMEText(email_data.status.message, "html"))
 
         if email_data.status.message == "":
