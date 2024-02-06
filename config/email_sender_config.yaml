@@ -3,4 +3,4 @@ sendgrid:
   default_recipients:
     - 'jmartinez@robotnik.es'
     - 'jmartinezojeda5@gmail.com'
-  api_key: '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' 
+  api_key: '' 
