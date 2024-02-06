@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!-- Desired frequency -->
+	<arg name="desired_freq" default="10.0" />
+
+	<!-- Load Sendgrid configuration -->
+	<arg name="sendgrid_config_path" default="$(find robotnik_email)/config/email_sender_config.yaml" />
+	<rosparam file="$(arg sendgrid_config_path)" command="load" />
+
+	<!-- Start email_sender node -->
+	<node pkg="robotnik_email" name="email_sender" type="email_sender_node.py" output="screen">
+		<param name="desired_freq" value="$(arg desired_freq)"/>
+	</node>
+
+
+</launch>

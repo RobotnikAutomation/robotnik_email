@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import rospy
-from smtp_manager import SMTPManager
+from email_sender import SimpleEmailSender
 
 
 def main():
 
-    rospy.init_node("smtp_manager_node")
+    rospy.init_node("simple_email_sender")
 
-    rc_node = SMTPManager()
+    rc_node = SimpleEmailSender()
 
     rospy.loginfo('%s: starting' % (rospy.get_name()))
 
