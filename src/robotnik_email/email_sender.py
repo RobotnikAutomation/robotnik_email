@@ -25,7 +25,6 @@ class SimpleEmailSender(RComponent):
         """"""
         RComponent.ros_setup(self)
 
-        # self.available_clips_publisher = rospy.Publisher()
         self.send_email_service = rospy.Service('robotnik_email/send_email', SendAlarms, self.send_email_cb)
 
     def init_state(self) -> None:
