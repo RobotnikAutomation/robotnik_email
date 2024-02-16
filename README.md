@@ -123,18 +123,29 @@ roslaunch robotnik_email email.launch
 
 Send a email to the default recipieints:
 ```
-rosservice call /smtp_manager/send_email "recipients:
-- ''
-subject: 'Robotnik Email'
-message: 'Hello world'" 
+rosservice call /robotnik_email/send_email "recipients: []
+status: {id: 0, description: '', type: '', message: ''}
+uuid: ''
+datetime: ''
+files_to_upload: []"
 ```
 
 Send a email to specific recipieints:
 ```
-rosservice call /smtp_manager/send_email "recipients:
-- 'someuser@domain.com'
-subject: 'Robotnik Email'
-message: 'Hello world'" 
+rosservice call /robotnik_email/send_email "recipients: ['recipient1@gmail.com', 'recipient2@gmail.com0']
+status: {id: 0, description: '', type: '', message: ''}
+uuid: ''
+datetime: ''
+files_to_upload: []"
+```
+
+Send a email to specific recipieints including some file attachments:
+```
+rosservice call /robotnik_email/send_email "recipients: ['recipient1@gmail.com', 'recipient2@gmail.com0']
+status: {id: 0, description: '', type: '', message: ''}
+uuid: ''
+datetime: ''
+files_to_upload: ['image1.png', 'video1.mkv]"
 ```
 
 
