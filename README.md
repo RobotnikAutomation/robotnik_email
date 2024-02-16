@@ -145,7 +145,7 @@ rosservice call /robotnik_email/send_email "recipients: ['recipient1@gmail.com',
 status: {id: 0, description: '', type: '', message: ''}
 uuid: ''
 datetime: ''
-files_to_upload: ['image1.png', 'video1.mkv]"
+files_to_upload: ['image1.png', 'video1.mkv']"
 ```
 
 
@@ -188,5 +188,5 @@ It sends emails using a SMTP server
   Node health
 
 ### 1.3 Services
-* smtp_manager/send_email (robotnik_email/SendEmail)
-  Service to send emails
+* robotnik_email/send_email (robotnik_alarms_msgs/SendAlarms)
+  Service to send alarm emails
