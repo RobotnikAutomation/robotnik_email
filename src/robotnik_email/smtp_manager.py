@@ -3,15 +3,18 @@
 # https://www.youtube.com/watch?v=ql5Dex4m40w
 # https://www.gmass.co/smtp-test
 
+from os.path import basename
+from typing import List, Union
+
 import rospy 
 
 from rcomponent.rcomponent import *
-from robotnik_msgs.srv import SetString
 from robotnik_alarms_msgs.srv import SendAlarms, SendAlarmsResponse
 
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 import re
 
 class SMTPManager(RComponent):
@@ -174,18 +177,32 @@ class SMTPManager(RComponent):
 
         email = MIMEMultipart("alternative")
   
+        # Set the Sender
         email["From"] = self.sender
         
+        # Set the Subject
         if email_data.status.description == "":
             email["Subject"] = "default"
         else:
             email["Subject"] =  email_data.status.description
-            
-        email.attach(MIMEText(email_data.status.message, "html"))
 
+        # Set the Attachments
+        attachments, non_attachments = self.get_files_to_upload_as_attachments(email_data.files_to_upload)
+        for attachment in attachments:
+            email.attach(attachment)
+
+        # Set the Massage
         if email_data.status.message == "":
             self.logger.logewarning("Message email is empty", "")
+        non_attachments_msg = ''
+        if non_attachments:
+            non_attachments_msg = '<p>The following files could not be sent, as the maximum mail size was exceeded:</p>'
+            for non_attachment in non_attachments:
+                non_attachments_msg += f'<p>  - {non_attachment}</p>'
 
+        email.attach(MIMEText(email_data.status.message + non_attachments_msg, "html"))
+
+        # Set the Recipient
         if '' in email_data.recipients or len(email_data.recipients) == 0:
             email["To"] = ', '.join(self.default_recipients)
 
@@ -209,6 +226,28 @@ class SMTPManager(RComponent):
             success = False
         
         return success
+
+    def get_files_to_upload_as_attachments(self, files_to_upload: List[str]) -> List[Union[str, MIMEApplication]]:
+        """from 23 GB it is not allowed to send the email"""
+        attachments, non_attachments = list(), list()
+        total_size = 0.
+        for file_to_upload in files_to_upload:
+            with open(file_to_upload, 'rb') as f:
+                attachment_data = f.read()
+
+            attachment_size = round(len(attachment_data) / 1e6, 3)
+            total_size += attachment_size
+            if total_size < 22.5:
+                attachment = MIMEApplication(attachment_data, Name=basename(file_to_upload))
+                attachment['Content-Disposition'] = f'attachment; filename="{basename(file_to_upload)}"'
+                attachments.append(attachment)
+            else:
+                non_attachments.append(file_to_upload)
+
+        if non_attachments:
+            rospy.logwarn(f'Mail maximum size exceeded. Files {non_attachments} could not be sent as attachments')
+
+        return attachments, non_attachments
 
     def smtp_disconnection(self):
 
