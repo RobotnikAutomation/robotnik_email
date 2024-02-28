@@ -2,9 +2,9 @@ smtp:
   server: 'smtp.gmail.com'
   port: 25
   use_authentication: true
-  username: 'robert96229@gmail.com'
-  password: 'vgvmafcaqvsjjhbu'
-  sender: 'robert96229@gmail.com'
+  username: 'sender@domain.com'
+  password: '12345678'
+  sender: 'sender@domain.com'
   default_recipients:
-    - 'rnavarro@robotnik.es'
-    - 'rvasquez@robotnik.es'
+    - 'recipient@domain.com'
+    - 'recipient@domain.com'
