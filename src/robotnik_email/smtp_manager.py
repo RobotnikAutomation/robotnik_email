@@ -135,7 +135,7 @@ class SMTPManager(RComponent):
             bool: True if all recipients are valid email addresses, False otherwise.
         """
 
-        regex = '^(\w|\.|\_|\-)+[@](\w|\_|\-|\.)+[.]\w{2,3}$'
+        regex = r'^(\w|\.|\_|\-)+[@](\w|\_|\-|\.)+[.]\w{2,3}$'
         valid = True
 
         for recipient in recipients:
