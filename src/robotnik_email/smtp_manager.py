@@ -19,6 +19,31 @@ import rospy
 from rcomponent.rcomponent import RComponent
 from robotnik_alarms_msgs.srv import SendAlarms, SendAlarmsResponse
 
+smtp_response_codes = {
+    211: "System status, or system help reply",
+    214: "Help message",
+    220: "Service ready",
+    221: "Service closing transmission channel",
+    250: "Requested mail action okay, completed",
+    251: "User not local; will forward to <forward-path>",
+    252: "Cannot VRFY user, but will accept message and attempt delivery",
+    354: "Start mail input; end with <CRLF>.<CRLF>",
+    421: "Service not available, closing transmission channel",
+    450: "Requested mail action not taken: mailbox unavailable",
+    451: "Requested action aborted: local error in processing",
+    452: "Requested action not taken: insufficient system storage",
+    500: "Syntax error, command unrecognized",
+    501: "Syntax error in parameters or arguments",
+    502: "Command not implemented",
+    503: "Bad sequence of commands",
+    504: "Command parameter not implemented",
+    550: "Requested action not taken: mailbox unavailable",
+    551: "User not local; please try <forward-path>",
+    552: "Requested mail action aborted: exceeded storage allocation",
+    553: "Requested action not taken: mailbox name not allowed",
+    554: "Transaction failed"
+}
+
 
 class SMTPManager(RComponent):
     """
@@ -76,6 +101,7 @@ class SMTPManager(RComponent):
             '~auto_generate_uuid_datetime', True)
         self.include_detailed_info = rospy.get_param(
             '~include_detailed_info', True)
+        self.timeout = rospy.get_param('~timeout', 30)
 
     def ros_setup(self):
         """Creates and inits ROS components"""
@@ -182,27 +208,46 @@ class SMTPManager(RComponent):
         response = SendAlarmsResponse()
         response.ret.success = False
         response.ret.code = -1
+        ret = False
+        ret_msg = ''
+        ret_code = 0
+        try_send = True
+        send_with_attachments = True
 
         if self.smtp_connection():
 
-            email = self.build_email(req)
+            while try_send and ret is False:
 
-            if email is not None:
+                email = self.build_email(
+                    req, send_with_attachments=send_with_attachments)
 
-                if self.send_email(email):
+                if email is not None:
+                    ret, ret_msg, ret_code = self.send_email(email)
+                    if ret is True:
 
-                    # response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
-                    self.logger.loginfo(
-                        "Email sent from " + email["From"] + " to " + email["To"], self.logger_tag)
-                    response.ret.success = True
-                    response.ret.code = 0
+                        self.logger.loginfo(
+                            "Email sent from " + email["From"] + " to " + email["To"], self.logger_tag)
+                        response.ret.success = True
+                        response.ret.code = 0
+                        response.ret.message = ret_msg
+
+                    else:
+                        # 552: Requested mail action aborted: exceeded storage allocation
+                        if ret_code == 552:
+                            if send_with_attachments is False:
+                                response.ret.message = f"The email could not be sent: {ret_msg}"
+
+                                try_send = False
+                            else:
+                                # Try once without any attachments
+                                send_with_attachments = False
+                        else:
+                            response.ret.message = f"The email could not be sent: {ret_msg}"
+                            try_send = False
 
                 else:
-
-                    response.ret.message = "The email could not be sent to the recipients, probably due to a mail server failure"
-
-            else:
-                response.ret.message = "The email can not be sent because it is malformed"
+                    try_send = False
+                    response.ret.message = "The email can not be sent because it is malformed"
         else:
 
             response.ret.message = "Cannot connect to SMTP server " + \
@@ -215,7 +260,7 @@ class SMTPManager(RComponent):
 
         # if (response.ret.success == True) or (response.ret.code == 0):
         #    rospy.loginfo(response.ret.message)
-        if (response.ret.success is False) or (response.ret.code == -1):
+        if (response.ret.success is False) or (response.ret.code != 0):
             self.logger.logerror(response.ret.message, self.logger_tag)
 
         return response
@@ -231,14 +276,14 @@ class SMTPManager(RComponent):
         try:
             if self.ssl:
                 rospy.loginfo(
-                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port} with SSL")
+                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port} with SSL. Timeout: {self.timeout}")
                 self.smtp = smtplib.SMTP_SSL(
                     self.smtp_server, port=self.smtp_port, timeout=self.timeout)
             else:
                 self.smtp = smtplib.SMTP(
                     self.smtp_server, port=self.smtp_port, timeout=self.timeout)
                 rospy.loginfo(
-                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port}")
+                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port}. Timeout: {self.timeout}")
 
             self.smtp.connect(self.smtp_server, self.smtp_port)
             if self.ehlo:
@@ -260,12 +305,13 @@ class SMTPManager(RComponent):
 
         return success
 
-    def build_email(self, email_data):
+    def build_email(self, email_data, send_with_attachments=True):
         """
         Builds and returns an email message based on the provided email_data.
 
         Args:
             email_data (EmailData): The data object containing information for building the email.
+            send_with_attachments (bool): Flag indicating whether to include attachments in the email. Default is True.
 
         Returns:
             email (MIMEMultipart): The constructed email message.
@@ -287,17 +333,24 @@ class SMTPManager(RComponent):
         non_attachments_msg = ''
         # Set the Attachments
         rospy.loginfo(f'Files to upload: {email_data.files_to_upload}')
+
         if email_data.files_to_upload is not None and len(email_data.files_to_upload) > 0:
-            attachments, non_attachments = self.get_files_to_upload_as_attachments(
-                email_data.files_to_upload)
-            for attachment in attachments:
-                email.attach(attachment)
 
-            if non_attachments:
-                non_attachments_msg = '<p>Errors: The following files could not be sent, as the maximum mail size was exceeded:</p>'
-                for non_attachment in non_attachments:
+            if send_with_attachments is True:
+                attachments, non_attachments = self.get_files_to_upload_as_attachments(
+                    email_data.files_to_upload)
+                for attachment in attachments:
+                    email.attach(attachment)
+
+                if non_attachments:
+                    non_attachments_msg = '<p>Errors: The following files could not be sent, as the maximum mail size was exceeded:</p>'
+                    for non_attachment in non_attachments:
+                        non_attachments_msg += f'<p>  - {non_attachment}</p>'
+            # Send with no attachments, but list them
+            else:
+                non_attachments_msg = '<p>Errors: The following files could not be attached:</p>'
+                for non_attachment in email_data.files_to_upload:
                     non_attachments_msg += f'<p>  - {non_attachment}</p>'
-
         # Set the Message
         if email_data.status.message == "":
             rospy.logwarn("Message email is empty")
@@ -342,20 +395,44 @@ class SMTPManager(RComponent):
             email (EmailMessage): The email message to be sent.
 
         Returns:
-            bool: True if the email was sent successfully, False otherwise.
+            Tuple[bool, str, int]: A tuple containing the following:
+                - success (bool): True if the email was sent successfully, False otherwise.
+                - ret_msg (str): A message indicating the result of the email sending process.
+                - ret_code (int): A code indicating the result of the email sending process.
         """
-
+        rospy.loginfo(f"Sending email from {email['From']} to {email['To']}")
+        ret_msg = ''
+        ret_code = 0
         try:
             self.smtp.sendmail(
                 email["From"], email["To"].split(','), email.as_string())
+            ret_msg = f"Email sent from {email['From']} to {email['To']}"
             success = True
 
-        except smtplib.SMTPException as e:
+        except smtplib.SMTPResponseException as e:
+
+            ret_code = e.smtp_code
             self.logger.logerror(
                 f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
+            ret_msg = f"{e.smtp_code} {e.smtp_error}"
             success = False
+        except smtplib.SMTPServerDisconnected as e:
 
-        return success
+            self.logger.logerror(
+                f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
+            ret_msg = f"{e}"
+            success = False
+            ret_code = -1
+        except smtplib.SMTPException as e:
+
+            rospy.logerr(f'errno = {type(e)}')
+            self.logger.logerror(
+                f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
+            ret_msg = f"{e}"
+            success = False
+            ret_code = -1
+
+        return success, ret_msg, ret_code
 
     def get_files_to_upload_as_attachments(self, files_to_upload: List[str]) -> List[Union[str, MIMEApplication]]:
         """
