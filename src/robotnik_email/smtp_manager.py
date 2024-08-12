@@ -282,20 +282,19 @@ class SMTPManager(RComponent):
         else:
             email["Subject"] = email_data.status.description
 
-        # Set the Attachments
-        attachments, non_attachments = self.get_files_to_upload_as_attachments(
-            email_data.files_to_upload)
-        for attachment in attachments:
-            email.attach(attachment)
-
-        # Set the Massage
-        if email_data.status.message == "":
-            self.logger.logewarning("Message email is empty", "")
         non_attachments_msg = ''
-        if non_attachments:
-            non_attachments_msg = '<p>The following files could not be sent, as the maximum mail size was exceeded:</p>'
-            for non_attachment in non_attachments:
-                non_attachments_msg += f'<p>  - {non_attachment}</p>'
+        # Set the Attachments
+        rospy.loginfo(f'Files to upload: {email_data.files_to_upload}')
+        if email_data.files_to_upload is not None and len(email_data.files_to_upload) > 0:
+            attachments, non_attachments = self.get_files_to_upload_as_attachments(
+                email_data.files_to_upload)
+            for attachment in attachments:
+                email.attach(attachment)
+
+            if non_attachments:
+                non_attachments_msg = '<p>Errors: The following files could not be sent, as the maximum mail size was exceeded:</p>'
+                for non_attachment in non_attachments:
+                    non_attachments_msg += f'<p>  - {non_attachment}</p>'
 
         email.attach(MIMEText(email_data.status.message +
                      non_attachments_msg, "html"))
