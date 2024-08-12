@@ -136,7 +136,7 @@ class SMTPManager(RComponent):
             0 : if it's performed successfully
             -1: if there's any problem or the component is running
         """
-        self.smtp_disconnection()
+        # self.smtp_disconnection()
 
         return RComponent.shutdown(self)
 
