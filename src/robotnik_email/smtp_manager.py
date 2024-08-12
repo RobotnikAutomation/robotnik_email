@@ -82,7 +82,7 @@ class SMTPManager(RComponent):
 
         # Service
         self.send_email_service = rospy.Service(
-            'robotnik_email/send_email', SendAlarms, self.send_email_cb)
+            '~send_email', SendAlarms, self.send_email_cb)
 
         return 0
 
