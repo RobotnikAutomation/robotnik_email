@@ -335,23 +335,43 @@ class SMTPManager(RComponent):
         return success
 
     def get_files_to_upload_as_attachments(self, files_to_upload: List[str]) -> List[Union[str, MIMEApplication]]:
-        """from 23 GB it is not allowed to send the email"""
+        """
+        Retrieves a list of files to be uploaded as attachments.
+
+        Args:
+            files_to_upload (List[str]): A list of file paths to be uploaded as attachments.
+
+        Returns:
+            attachments (List[Union[str, MIMEApplication]]): A list of attachments to be included in the email.
+            non_attachments (List[str]): A list of files that could not be attached due to exceeding the maximum mail size.
+        """
         attachments, non_attachments = list(), list()
         total_size = 0.
         for file_to_upload in files_to_upload:
-            with open(file_to_upload, 'rb') as f:
-                attachment_data = f.read()
 
-            attachment_size = round(len(attachment_data) / 1e6, 3)
-            total_size += attachment_size
-            if total_size < 22.5:
-                attachment = MIMEApplication(
-                    attachment_data, Name=basename(file_to_upload))
-                attachment[
-                    'Content-Disposition'] = f'attachment; filename="{basename(file_to_upload)}"'
-                attachments.append(attachment)
-            else:
-                non_attachments.append(file_to_upload)
+            if file_to_upload != '':
+                rospy.loginfo(f'Uploading file: {file_to_upload}')
+                try:
+                    with open(file_to_upload, 'rb') as f:
+                        attachment_data = f.read()
+
+                    attachment_size = round(len(attachment_data) / 1e6, 3)
+                    total_size += attachment_size
+                    if total_size < self.max_mail_size:
+                        attachment = MIMEApplication(
+                            attachment_data, Name=basename(file_to_upload))
+                        attachment[
+                            'Content-Disposition'] = f'attachment; filename="{basename(file_to_upload)}"'
+                        attachments.append(attachment)
+                    else:
+                        msg = f'File {file_to_upload} ({attachment_size} MB) could not be attached due to the total size ({total_size} MB) is exceeding the maximum mail size of {self.max_mail_size} MB'
+                        rospy.logwarn(msg)
+                        self.logger.logwarning(msg, self.logger_tag)
+                        non_attachments.append(file_to_upload)
+                except FileNotFoundError:
+                    msg = f'File {file_to_upload} could not be found. It will not be sent as an attachment'
+                    rospy.logerr(msg)
+                    self.logger.logerror(msg, self.logger_tag)
 
         if non_attachments:
             rospy.logwarn(
