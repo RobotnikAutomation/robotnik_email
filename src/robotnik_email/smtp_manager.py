@@ -98,11 +98,12 @@ class SMTPManager(RComponent):
 
         """
         if self.check_recipients(self.default_recipients) is False:
-            self.logger.logerror("Default recipients are malformed", "")
+            self.logger.logerror(
+                "Default recipients are malformed", self.logger_tag)
             rospy.signal_shutdown("shutdown")
 
         if self.check_recipients(self.sender.split()) is False:
-            self.logger.logerror("Sender is malformed", "")
+            self.logger.logerror("Sender is malformed", self.logger_tag)
             rospy.signal_shutdown("shutdown")
 
         return RComponent.init_state(self)
@@ -160,7 +161,8 @@ class SMTPManager(RComponent):
 
         for recipient in recipients:
             if not re.search(regex, recipient):
-                self.logger.logerror(f"{recipient} is an invalid email", "")
+                self.logger.logerror(
+                    f"{recipient} is an invalid email", self.logger_tag)
                 valid = False
 
         return valid
@@ -189,7 +191,7 @@ class SMTPManager(RComponent):
 
                     # response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
                     self.logger.loginfo(
-                        "Email sent from " + email["From"] + " to " + email["To"], "")
+                        "Email sent from " + email["From"] + " to " + email["To"], self.logger_tag)
                     response.ret.success = True
                     response.ret.code = 0
 
@@ -212,7 +214,7 @@ class SMTPManager(RComponent):
         # if (response.ret.success == True) or (response.ret.code == 0):
         #    rospy.loginfo(response.ret.message)
         if (response.ret.success is False) or (response.ret.code == -1):
-            self.logger.logerror(response.ret.message, "")
+            self.logger.logerror(response.ret.message, self.logger_tag)
 
         return response
 
@@ -328,7 +330,7 @@ class SMTPManager(RComponent):
 
         except smtplib.SMTPException as e:
             self.logger.logerror(
-                f"smtp_manager::send_email -> Exception: {e}", "")
+                f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
             success = False
 
         return success
