@@ -36,6 +36,18 @@ class SMTPManager(RComponent):
         self.time_between_emails = 0
         self.smtp = None
         self.send_email_service = None
+        self.timeout = 10
+        self.ssl = False
+        self.tls = False
+        self.ehlo = False
+        self.max_mail_size = 20  # Maximum mail size in MB
+        self.logger_tag = 'SMTP'
+        # enables the auto generation of metadata like uuid and datetime
+        self.auto_generate_uuid_datetime = True
+        # enables the inclusion of all the detailed in the messages body
+        self.include_detailed_info = True
+
+        self.ros_read_params()
 
         self.logger = self.initialize_logger()
 
@@ -43,17 +55,25 @@ class SMTPManager(RComponent):
         """Gets params from param server"""
         RComponent.ros_read_params(self)
 
-        self.smtp_server = rospy.get_param('smtp/server', 'smtp.gmail.com')
-        self.smtp_port = rospy.get_param('smtp/port', 587)
-        self.sender = rospy.get_param('smtp/sender', 'sender@domain.com')
+        self.smtp_server = rospy.get_param('~server', 'smtp.gmail.com')
+        self.smtp_port = rospy.get_param('~port', 587)
+        self.sender = rospy.get_param('~sender', '')
         self.use_authentication = rospy.get_param(
-            'smtp/use_authentication', False)
-        self.username = rospy.get_param('smtp/username', 'username')
-        self.password = rospy.get_param('smtp/password', 'password')
+            '~use_authentication', False)
+        self.username = rospy.get_param('~username', 'username')
+        self.password = rospy.get_param('~password', 'password')
         self.default_recipients = rospy.get_param(
-            'smtp/default_recipients', 'recipient@domain.com')
+            '~default_recipients', '')
         self.time_between_emails = rospy.get_param(
-            'smtp/time_between_emails', 0)
+            '~time_between_emails', 0)
+        self.ssl = rospy.get_param('~ssl', False)
+        self.tls = rospy.get_param('~tls', False)
+        self.ehlo = rospy.get_param('~ehlo', False)
+        self.max_mail_size = rospy.get_param('~max_mail_size', 20)
+        self.auto_generate_uuid_datetime = rospy.get_param(
+            '~auto_generate_uuid_datetime', True)
+        self.include_detailed_info = rospy.get_param(
+            '~include_detailed_info', True)
 
     def ros_setup(self):
         """Creates and inits ROS components"""
@@ -203,14 +223,26 @@ class SMTPManager(RComponent):
         Returns:
             bool: True if the connection is successfully established, False otherwise.
         """
-        # self.smtp = smtplib.SMTP(timeout=20)
-        self.smtp = smtplib.SMTP(self.smtp_server)
 
         try:
+            if self.ssl:
+                rospy.loginfo(
+                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port} with SSL")
+                self.smtp = smtplib.SMTP_SSL(
+                    self.smtp_server, port=self.smtp_port, timeout=self.timeout)
+            else:
+                self.smtp = smtplib.SMTP(
+                    self.smtp_server, port=self.smtp_port, timeout=self.timeout)
+                rospy.loginfo(
+                    f"Connecting to SMTP server {self.smtp_server} on port {self.smtp_port}")
+
             self.smtp.connect(self.smtp_server, self.smtp_port)
-            self.smtp.ehlo()
-            self.smtp.starttls()
-            self.smtp.ehlo()
+            if self.ehlo:
+                self.smtp.ehlo()
+            if self.tls:
+                self.smtp.starttls()
+                if self.ehlo:  # Requires EHLO after STARTTLS
+                    self.smtp.ehlo()
 
             if self.use_authentication:
                 self.smtp.login(self.username, self.password)
@@ -219,7 +251,7 @@ class SMTPManager(RComponent):
 
         except smtplib.SMTPException as e:
             self.logger.logerror(
-                f"smtp_manager::smtp_connection -> Exception: {e}", "")
+                f"smtp_connection -> Exception: {e}", self.logger_tag)
             success = False
 
         return success
