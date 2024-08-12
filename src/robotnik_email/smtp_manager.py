@@ -11,6 +11,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import re
+from datetime import datetime
+import uuid
 
 import rospy
 
@@ -296,8 +298,29 @@ class SMTPManager(RComponent):
                 for non_attachment in non_attachments:
                     non_attachments_msg += f'<p>  - {non_attachment}</p>'
 
-        email.attach(MIMEText(email_data.status.message +
-                     non_attachments_msg, "html"))
+        # Set the Message
+        if email_data.status.message == "":
+            rospy.logwarn("Message email is empty")
+
+        datetime_msg = 'Date: '
+        uuid_msg = 'Uuid: '
+        if self.auto_generate_uuid_datetime:
+            datetime_msg += email_data.datetime if email_data.datetime != '' else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            uuid_msg += email_data.uuid if email_data.uuid != '' else str(
+                uuid.uuid4())
+        else:
+            datetime_msg += email_data.datetime
+            uuid_msg += email_data.uuid
+
+        id_msg = email_data.status.id
+        type_msg = email_data.status.type
+
+        if self.include_detailed_info:
+            msg = f'<p>{datetime_msg}</p><p>{uuid_msg}</p><p>ID: {id_msg}</p><p>Type: {type_msg}</p>'
+        msg += f'<p>Message: {email_data.status.message}</p>'
+        msg += non_attachments_msg
+
+        email.attach(MIMEText(msg, "html"))
 
         # Set the Recipient
         if '' in email_data.recipients or len(email_data.recipients) == 0:
