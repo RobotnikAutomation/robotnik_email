@@ -55,11 +55,11 @@ class SMTPManager(RComponent):
     def init_state(self):
         
         if self.check_recipients(self.default_recipients) == False:
-            self.logger.logerror("Default recipients are malformed", "")
+            self.logger.logerror("Default recipients are malformed", "NOTIFICATION")
             rospy.signal_shutdown("shutdown")
 
         if self.check_recipients(self.sender.split()) == False:
-            self.logger.logerror("Sender is malformed", "")
+            self.logger.logerror("Sender is malformed", "NOTIFICATION")
             rospy.signal_shutdown("shutdown")
 
         return RComponent.init_state(self)
@@ -102,7 +102,7 @@ class SMTPManager(RComponent):
 
             if not re.search(regex, recipient):
 
-                self.logger.logerror(f"{recipient} is an invalid email", "")
+                self.logger.logerror(f"{recipient} is an invalid email", "NOTIFICATION")
                 valid = False
 
         return valid
@@ -123,7 +123,7 @@ class SMTPManager(RComponent):
                 if self.send_email(email):
                     
                     #response.ret.message = "Email sent from " + email["From"] + " to " + email["To"]
-                    self.logger.loginfo("Email sent from " + email["From"] + " to " + email["To"], "")
+                    self.logger.loginfo("Email sent from " + email["From"] + " to " + email["To"], "NOTIFICATION")
                     response.ret.success = True
                     response.ret.code = 0
                     
@@ -145,7 +145,7 @@ class SMTPManager(RComponent):
         #if (response.ret.success == True) or (response.ret.code == 0):
         #    rospy.loginfo(response.ret.message)
         if (response.ret.success == False) or (response.ret.code == -1):
-            self.logger.logerror(response.ret.message, "")
+            self.logger.logerror(response.ret.message, "NOTIFICATION")
 
         return response
 
@@ -167,7 +167,7 @@ class SMTPManager(RComponent):
             success = True
 
         except Exception as e:
-            self.logger.logerror(f"smtp_manager::smtp_connection -> Exception: {e}", "")
+            self.logger.logerror(f"smtp_manager::smtp_connection -> Exception: {e}", "NOTIFICATION")
             success = False
 
         return success
@@ -193,7 +193,7 @@ class SMTPManager(RComponent):
 
         # Set the Massage
         if email_data.status.message == "":
-            self.logger.logewarning("Message email is empty", "")
+            self.logger.logewarning("Message email is empty", "NOTIFICATION")
         non_attachments_msg = ''
         if non_attachments:
             non_attachments_msg = '<p>The following files could not be sent, as the maximum mail size was exceeded:</p>'
@@ -222,7 +222,7 @@ class SMTPManager(RComponent):
             success = True
 
         except Exception as e:
-            self.logger.logerror(f"smtp_manager::send_email -> Exception: {e}", "")
+            self.logger.logerror(f"smtp_manager::send_email -> Exception: {e}", "NOTIFICATION")
             success = False
         
         return success
