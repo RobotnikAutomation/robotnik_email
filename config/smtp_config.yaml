@@ -1,10 +1,15 @@
-smtp:
-  server: 'smtp.gmail.com'
-  port: 25
-  use_authentication: true
-  username: 'sender@domain.com'
-  password: '12345678'
-  sender: 'sender@domain.com'
-  default_recipients:
-    - 'recipient@domain.com'
-    - 'recipient@domain.com'
+server: 'smtp.gmail.com'
+port: 25
+use_authentication: true
+username: 'sender@domain.com'
+password: '12345678'
+sender: 'sender@domain.com'
+include_detailed_info: true
+auto_generate_uuid_datetime: true
+ssl: false
+ehlo: true
+tls: true
+max_mail_size: 20
+default_recipients:
+  - 'recipient@domain.com'
+  - 'recipient@domain.com'

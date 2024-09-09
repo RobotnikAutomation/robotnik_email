@@ -157,36 +157,76 @@ It sends emails using a SMTP server
 
 ### 1.1 Parameters
 
-* smtp/server (string, default: smtp.gmail.com):
+ * **server** (string, default: smtp.gmail.com):
+
    SMTP server address
 
- * smtp/port (int, default: 587):
+ * **port** (int, default: 587):
+   
    SMTP server port  
 
- * smtp/sender (string, default: sender@domain.com):
+ * **sender** (string, default: ):
+   
    Email from where the message is sent
 
- * smtp/use_authentication (bool, default: False):
+ * **use_authentication** (bool, default: False):
+   
    Enable credentials when a SMTP needs them 
 
- * smtp/username (string, default: username):
+ * **ssl** (bool, default: False):
+   
+   Enable SSL connection
+
+ * **tls** (bool, default: False):
+   
+   Enable TLS connection
+
+ * **timeout** (int, default: 10):
+   
+   Timeout to connect to the SMTP server
+
+ * **tls** (bool, default: False):
+   
+   Enable TLS connection
+
+ * **username** (string, default: username):
+   
    Name credentials
 
-  * smtp/password (string, default: password):
+ * **password** (string, default: password):
+   
    Password credentials
 
-  * smtp/default_recipients (string[], default: recipient@domain.com):
-    Default recipiens if the recipients field is empty when a message is sent.
+ * **default_recipients** (string[], default: []):
+   
+   Default recipiens if the recipients field is empty when a message is sent.
 
-  * smtp/time_between_emails (int, default: 0):
-    Time between one email and another to avoid overloads
- 
+ * **time_between_emails** (int, default: 0):(NOT_IMPLEMENTED_YET)
+   
+   Time between one email and another to avoid overloads
+
+ * **include_detailed_info** (bool, default: True.):
+    
+    Include detailed information in the email. The detailed information is taken from the rosservice send_email
+
+ * **auto_generate_uuid_datetime** (bool, default: True):
+    
+    Automatically generate the uuid and datetime fields in the email in case it is not provided by the user
 
 ### 1.2 Published Topics
 
-* smtp_manager/state (robotnik_msgs/State):
+* ~/state (robotnik_msgs/State):
   Node health
 
 ### 1.3 Services
-* robotnik_email/send_email (robotnik_alarms_msgs/SendAlarms)
-  Service to send alarm emails
+* ~/send_email (robotnik_alarms_msgs/SendAlarms)
+The service sends an email to the recipients with the status message and the files to upload.  
+Example:
+  ```
+    rosservice call /smtp_manager/send_email "recipients: ['info@robotnik.es']
+    status: {id: 0, description: 'Temperature Alarm', type: '', message: 'The alarm temperature has been reached'}
+    uuid: ''
+    datetime: ''
+    files_to_upload: ['/home/robot/Pictures/camera-1.png', '/home/robot/Pictures/camera-2.png']" 
+  ```
+  
