@@ -209,12 +209,15 @@ class SMTPManager(RComponent):
         response.ret.success = False
         response.ret.code = -1
         ret = False
+        ret_connection = False
         ret_msg = ''
         ret_code = 0
         try_send = True
         send_with_attachments = True
 
-        if self.smtp_connection():
+        ret_connection, ret_msg = self.smtp_connection()
+
+        if ret_connection is True:
 
             while try_send and ret is False:
 
@@ -248,20 +251,22 @@ class SMTPManager(RComponent):
                 else:
                     try_send = False
                     response.ret.message = "The email can not be sent because it is malformed"
+
+            try:
+                self.smtp_disconnection()
+            except smtplib.SMTPException as e:
+                rospy.logerr(e)
+
+            # if (response.ret.success == True) or (response.ret.code == 0):
+            #    rospy.loginfo(response.ret.message)
+            if (response.ret.success is False) or (response.ret.code != 0):
+                self.logger.logerror(response.ret.message, self.logger_tag)
+
         else:
 
             response.ret.message = "Cannot connect to SMTP server " + \
-                str(self.smtp_server) + " with port " + str(self.smtp_port)
-
-        try:
-            self.smtp_disconnection()
-        except smtplib.SMTPException as e:
-            rospy.logerr(e)
-
-        # if (response.ret.success == True) or (response.ret.code == 0):
-        #    rospy.loginfo(response.ret.message)
-        if (response.ret.success is False) or (response.ret.code != 0):
-            self.logger.logerror(response.ret.message, self.logger_tag)
+                str(self.smtp_server) + " with port " + \
+                str(self.smtp_port) + ": " + ret_msg
 
         return response
 
@@ -270,9 +275,12 @@ class SMTPManager(RComponent):
         Establishes a connection to the SMTP server.
 
         Returns:
-            bool: True if the connection is successfully established, False otherwise.
+            A tuple containing:
+                - bool: True if the connection is successfully established, False otherwise.
+                - str: A message indicating the result of the connection attempt.
         """
 
+        ret_msg = 'OK'
         try:
             if self.ssl:
                 rospy.loginfo(
@@ -301,9 +309,15 @@ class SMTPManager(RComponent):
         except smtplib.SMTPException as e:
             self.logger.logerror(
                 f"smtp_connection -> Exception: {e}", self.logger_tag)
+            ret_msg = f"{e}"
+            success = False
+        except Exception as e:
+            self.logger.logerror(
+                f"smtp_connection -> Exception: {e}", self.logger_tag)
+            ret_msg = f"{e}"
             success = False
 
-        return success
+        return success, ret_msg
 
     def build_email(self, email_data, send_with_attachments=True):
         """
