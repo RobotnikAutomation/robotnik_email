@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(robotnik_email)
 
-add_compile_options(-std=c++11)
-
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
@@ -12,18 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   #message_generation
 )
 
-#add_service_files(
-#  FILES
-#  SendAlarms.srv
-#)
-
 catkin_python_setup()
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  robotnik_msgs
-)
 
 catkin_package(
   INCLUDE_DIRS
@@ -36,14 +23,6 @@ catkin_package(
     rcomponent
    # message_runtime
   DEPENDS
-)
-
-###########
-## Build ##
-###########
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
 )
 
 #############
