@@ -184,7 +184,7 @@ class SMTPManager(RComponent):
             bool: True if all recipients are valid email addresses, False otherwise.
         """
 
-        regex = r'^(\w|\.|\_|\-)+[@](\w|\_|\-|\.)+[.]\w{2,3}$'
+        regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         valid = True
 
         for recipient in recipients:
@@ -194,6 +194,30 @@ class SMTPManager(RComponent):
                 valid = False
 
         return valid
+    
+    def get_valid_recipients(self, recipients):
+        """
+        Checks if the given recipients are valid email addresses.
+
+        Args:
+            recipients (list): A list of email addresses to be checked.
+
+        Returns:
+            list: Valid email recipients.
+        """
+
+        regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+        valid_recipients = []
+
+        for recipient in recipients:
+            if not re.search(regex, recipient):
+                self.logger.logerror(
+                    f"{recipient} is an invalid email", self.logger_tag)
+            else:
+                valid_recipients.append(recipient)
+
+        return valid_recipients
 
     def send_email_cb(self, req):
         """
@@ -394,8 +418,9 @@ class SMTPManager(RComponent):
             email["To"] = ', '.join(self.default_recipients)
 
         else:
-            if self.check_recipients(email_data.recipients):
-                email["To"] = ', '.join(email_data.recipients)
+            valid_recipients = self.get_valid_recipients(email_data.recipients)
+            if not valid_recipients == []:
+                email["To"] = ', '.join(valid_recipients)
             else:
                 email = None
 
