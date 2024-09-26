@@ -25,6 +25,11 @@ catkin_package(
   DEPENDS
 )
 
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  add_rostest(tests/unit_test.test)
+endif()
+
 #############
 ## Install ##
 #############

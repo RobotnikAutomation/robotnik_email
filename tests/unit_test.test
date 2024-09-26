@@ -1,0 +1,14 @@
+<!-- rostest launch file for smtp_manager
+
+     This unit test uses rostest, because the SMTPManager class
+     constructor requires a ROS environment.  Otherwise, it is
+     completely self-contained.  
+-->
+
+<launch>
+
+  <!-- start test_smtp_manager Python node -->
+  <test pkg="robotnik_email" type="test_smtp_manager.py"
+        name="unit_test"
+        test-name="test_smtp_manager" time-limit="5.0" />
+</launch>
