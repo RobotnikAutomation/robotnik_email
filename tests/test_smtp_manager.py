@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
+
 import unittest
-import rostest
 
 try:
     from robotnik_email import SMTPManager
@@ -73,5 +73,7 @@ class TestSMTPManager(unittest.TestCase):
                     f"Expected {email} to be invalid"
                 )
 
+
 if __name__ == '__main__':
+    import rostest
     rostest.rosrun('smtp_manager', 'test_smtp_manager', TestSMTPManager)
