@@ -206,18 +206,29 @@ class SMTPManager(RComponent):
             list: Valid email recipients.
         """
 
-        regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-
         valid_recipients = []
 
         for recipient in recipients:
-            if not re.search(regex, recipient):
+            if not self.is_valid_email(recipient):
                 self.logger.logerror(
                     f"{recipient} is an invalid email", self.logger_tag)
             else:
                 valid_recipients.append(recipient)
 
         return valid_recipients
+
+    def is_valid_email(self, email):
+        """
+        Validates the format of an email address.
+
+        Args:
+            email (str): The email address to be validated.
+
+        Returns:
+            bool: True if the email address is valid, False otherwise.
+        """
+        regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.search(regex, email) is not None
 
     def send_email_cb(self, req):
         """
