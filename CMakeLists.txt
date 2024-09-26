@@ -3,11 +3,6 @@ project(robotnik_email)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
-  std_msgs
-  std_srvs
-  rcomponent
-  robotnik_msgs
-  #message_generation
 )
 
 catkin_python_setup()
@@ -18,10 +13,6 @@ catkin_package(
     ${PROJECT_NAME}
   CATKIN_DEPENDS
     rospy
-    std_msgs
-    std_srvs
-    rcomponent
-   # message_runtime
   DEPENDS
 )
 

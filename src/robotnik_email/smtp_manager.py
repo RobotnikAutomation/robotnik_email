@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # https://www.youtube.com/watch?v=ql5Dex4m40w
 # https://www.gmass.co/smtp-test
 
