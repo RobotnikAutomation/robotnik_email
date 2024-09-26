@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>robotnik_email</name>
   <version>0.2.2</version>
   <description>The robotnik_email package, based on RComponent structure. Email server to send messages through ROS</description>
