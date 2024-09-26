@@ -103,11 +103,23 @@ class SMTPManager(RComponent):
             '~include_detailed_info', True)
         self.timeout = rospy.get_param('~timeout', 30)
 
+    def validate_configuration(self):
+        """Validates the configuration of the SMTP manager"""
+         # Validate default recipients
+        len_default_recipients = len(self.default_recipients)
+        self.default_recipients = self.get_valid_recipients(self.default_recipients)
+        new_len_default_recipients = len(self.default_recipients)
+        if len_default_recipients != new_len_default_recipients:
+            self.logger.logwarning(
+                "Some default recipients were invalid and were removed", self.logger_tag)
+
     def ros_setup(self):
         """Creates and inits ROS components"""
 
         RComponent.ros_setup(self)
 
+        self.validate_configuration()
+        
         # Service
         self.send_email_service = rospy.Service(
             '~send_email', SendAlarms, self.send_email_cb)
