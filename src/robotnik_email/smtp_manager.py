@@ -419,7 +419,7 @@ class SMTPManager(RComponent):
 
         else:
             valid_recipients = self.get_valid_recipients(email_data.recipients)
-            if not valid_recipients == []:
+            if valid_recipients:
                 email["To"] = ', '.join(valid_recipients)
             else:
                 email = None
