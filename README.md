@@ -228,7 +228,7 @@ It sends emails using a SMTP server
 
 ### 1.3 Services
 * ~/send_email (robotnik_alarms_msgs/SendAlarms)
-The service queues the email to be sendt to the recipients with the status message and the files to upload.  
+The service queues the email to be sent to the recipients with the status message and the files to upload.  
 Example:
   ```
     rosservice call /smtp_manager/send_email "recipients: ['info@robotnik.es']
