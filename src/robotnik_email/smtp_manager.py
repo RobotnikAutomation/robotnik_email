@@ -616,7 +616,7 @@ class SMTPManager(RComponent):
             #raise ValueError("Invalid format for 'To' field. Expected a comma-separated string.")
         except smtplib.SMTPResponseException as e:
 
-            ret_code = self.CONNECTION_FAILED
+            ret_code = e.smtp_code
             self.logger.logerror(
                 f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
             ret_msg = f"{e.smtp_code} {e.smtp_error}"
