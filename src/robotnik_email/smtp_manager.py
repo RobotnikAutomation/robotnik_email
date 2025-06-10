@@ -598,16 +598,22 @@ class SMTPManager(RComponent):
         ret_msg = ''
         ret_code = self.SUCCESS
         success = False
+
         try:
-            try:
-                recipients = email["To"].split(',')
-                self.smtp.sendmail(email["From"], recipients, email.as_string())
-            except AttributeError:
-                rospy.logerr("Invalid format for 'To' field. Expected a comma-separated string.")
-                raise ValueError("Invalid format for 'To' field. Expected a comma-separated string.")
+            recipients = email["To"].split(',')
+            self.smtp.sendmail(email["From"], recipients, email.as_string())
             ret_msg = f"Email sent from {email['From']} to {email['To']}"
             success = True
 
+        except AttributeError as e:
+            
+            ret_code = self.MALFORMED_EMAIL            
+            self.logger.logerror(
+                f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
+            ret_msg = f"Invalid 'To' field format. Expected a comma-separated string: {e}"
+            success = False
+            rospy.logerr(ret_msg)
+            #raise ValueError("Invalid format for 'To' field. Expected a comma-separated string.")
         except smtplib.SMTPResponseException as e:
 
             ret_code = self.CONNECTION_FAILED
