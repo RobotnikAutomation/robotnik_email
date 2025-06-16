@@ -13,3 +13,7 @@ max_mail_size: 20
 default_recipients:
   - 'recipient@domain.com'
   - 'recipient@domain.com'
+
+timeout: 30
+time_between_emails: 5
+queue_max_len: 1000

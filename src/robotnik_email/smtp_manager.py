@@ -11,11 +11,14 @@ from email.mime.application import MIMEApplication
 import re
 from datetime import datetime
 import uuid
+from robotnik_msgs.msg import State
+from std_msgs.msg import UInt32
+
 
 import rospy
 
 from rcomponent.rcomponent import RComponent
-from robotnik_alarms_msgs.srv import SendAlarms, SendAlarmsResponse
+from robotnik_alarms_msgs.srv import SendAlarms, SendAlarmsResponse, SendAlarmsRequest
 
 smtp_response_codes = {
     211: "System status, or system help reply",
@@ -47,6 +50,12 @@ class SMTPManager(RComponent):
     """
     SMTP server to send messages through ROS
     """
+    SUCCESS = 0
+    CONNECTION_FAILED = -1
+    MALFORMED_EMAIL = -2
+    QUEUE_OVERFLOW = -3
+    INVALID_CONFIGURATION = -4
+    NOT_READY = -5
 
     def __init__(self):
 
@@ -58,7 +67,6 @@ class SMTPManager(RComponent):
         self.username = ''
         self.password = ''
         self.default_recipients = ''
-        self.time_between_emails = 0
         self.smtp = None
         self.send_email_service = None
         self.timeout = 10
@@ -71,7 +79,10 @@ class SMTPManager(RComponent):
         self.auto_generate_uuid_datetime = True
         # enables the inclusion of all the detailed in the messages body
         self.include_detailed_info = True
-
+        self.queue_max_len = 1000
+        self.email_request_queue: list[SendAlarmsRequest] = []  # FIFO queue for email requests
+        self.time_between_emails = rospy.Duration(10)  # Maximum frequency of email sending
+        self.email_last_sent_time = rospy.Time(0)
         self.ros_read_params()
 
         self.logger = self.initialize_logger()
@@ -82,15 +93,15 @@ class SMTPManager(RComponent):
 
         self.smtp_server = rospy.get_param('~server', 'smtp.gmail.com')
         self.smtp_port = rospy.get_param('~port', 587)
-        self.sender = rospy.get_param('~sender', '')
+        self.sender = rospy.get_param('~sender', 'default_sender@example.com')
         self.use_authentication = rospy.get_param(
             '~use_authentication', False)
         self.username = rospy.get_param('~username', 'username')
         self.password = rospy.get_param('~password', 'password')
         self.default_recipients = rospy.get_param(
-            '~default_recipients', '')
-        self.time_between_emails = rospy.get_param(
-            '~time_between_emails', 0)
+            '~default_recipients', [])
+        time_between_emails = rospy.get_param(
+            '~time_between_emails', 5)
         self.ssl = rospy.get_param('~ssl', False)
         self.tls = rospy.get_param('~tls', False)
         self.ehlo = rospy.get_param('~ehlo', False)
@@ -100,6 +111,9 @@ class SMTPManager(RComponent):
         self.include_detailed_info = rospy.get_param(
             '~include_detailed_info', True)
         self.timeout = rospy.get_param('~timeout', 30)
+        if isinstance(time_between_emails, (int, float)):
+            self.time_between_emails = rospy.Duration(time_between_emails)
+        self.queue_max_len = rospy.get_param('~queue_max_len', 1000)
 
     def validate_configuration(self):
         """Validates the configuration of the SMTP manager"""
@@ -121,6 +135,7 @@ class SMTPManager(RComponent):
         # Service
         self.send_email_service = rospy.Service(
             '~send_email', SendAlarms, self.send_email_cb)
+        self.queue_size_pub = rospy.Publisher('~queue_size', UInt32, queue_size=10)
 
         return 0
 
@@ -136,18 +151,70 @@ class SMTPManager(RComponent):
 
         """
         if self.check_recipients(self.default_recipients) is False:
-            self.logger.logerror(
-                "Default recipients are malformed", self.logger_tag)
-            rospy.signal_shutdown("shutdown")
+            msg = f"default_recipients is malformed: {self.default_recipients}"
+            self.logger.logerror(msg, self.logger_tag)
+            rospy.logerr(msg)
+            self.switch_to_state(State.FAILURE_STATE)
+            return -1
 
-        if self.check_recipients(self.sender.split()) is False:
-            self.logger.logerror("Sender is malformed", self.logger_tag)
-            rospy.signal_shutdown("shutdown")
+        if self.check_recipients([self.sender]) is False:            
+            msg = f"Sender is malformed: {self.sender}"
+            self.logger.logerror(msg, self.logger_tag)
+            rospy.logerr(msg)
+            self.switch_to_state(State.FAILURE_STATE)
+            return -1
 
-        return RComponent.init_state(self)
+        ret_connection, ret_msg, ret_code = self.smtp_connection()
+
+        if ret_connection is False:
+            if ret_code == self.INVALID_CONFIGURATION:
+                msg = f"Invalid SMTP configuration: {ret_msg}"
+                self.logger.logerror(msg, self.logger_tag)
+                rospy.logerr(msg)
+                self.switch_to_state(State.FAILURE_STATE)
+                return -1
+        
+        self.switch_to_state(State.READY_STATE)
+        return 0
 
     def ready_state(self):
         """Actions performed in ready state"""
+        items_index_to_remove = []
+        # Check if there are any email requests to process
+        if self.email_request_queue:
+
+            for i in range(len(self.email_request_queue)):
+                
+                # Check if enough time has passed since the last email was sent
+                current_time = rospy.Time.now()
+                if (current_time - self.email_last_sent_time) >= self.time_between_emails:
+                    # Process the first email request in the queue
+                    req = self.email_request_queue[i]
+                    success, ret_msg, ret_code = self.process_and_send(req)
+
+                    if success:
+                        self.email_last_sent_time = current_time
+                        items_index_to_remove.append(i)  # Mark the index for removal
+                    else:
+                        rospy.logerr(f"Failed to send email: {ret_msg}: {self.ret_code_to_string(ret_code)}")
+                        if ret_code == self.MALFORMED_EMAIL:
+                            # We remove the request if the email is malformed
+                            msg = f"Malformed email request: it will be removed from the queue. {req}"
+                            rospy.logerr(msg)
+                            items_index_to_remove.append(i)
+                        elif ret_code == self.CONNECTION_FAILED:
+                            self.email_last_sent_time = current_time
+                        elif ret_code == self.INVALID_CONFIGURATION:
+                            self.email_last_sent_time = current_time
+                else:
+                    rospy.loginfo_throttle(self.time_between_emails.to_sec(), f"Skipping email request due to frequency limit. Required frequency: {self.time_between_emails.to_sec()} seconds.")
+                    break
+            # Remove processed requests from the queue
+            for index in reversed(items_index_to_remove):
+                try:
+                    self.email_request_queue.pop(index)
+                except IndexError as e:
+                    rospy.logerr(f"Index error while removing email request: {e}")
 
         return RComponent.ready_state(self)
 
@@ -177,6 +244,22 @@ class SMTPManager(RComponent):
         # self.smtp_disconnection()
 
         return RComponent.shutdown(self)
+
+    def all_state(self):
+        """
+        Publishes the current size of the email request queue and returns the state from the parent class.
+
+        This method publishes the length of `self.email_request_queue` to the `queue_size_pub` publisher
+        as a `UInt32` message. After publishing, it calls and returns the result of the `all_state` method
+        from the `RComponent` superclass.
+
+        Returns:
+            The result of `RComponent.all_state(self)`.
+        """
+        # Publish the current size of the email request queue
+        self.queue_size_pub.publish(UInt32(data=len(self.email_request_queue)))
+        return RComponent.all_state(self)
+        
 
     def switch_to_state(self, new_state):
         """Performs the change of state"""
@@ -240,7 +323,7 @@ class SMTPManager(RComponent):
         regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return re.search(regex, email) is not None
 
-    def send_email_cb(self, req):
+    def send_email_cb(self, req: SendAlarmsRequest):
         """
         Sends an email based on the given request.
 
@@ -250,70 +333,108 @@ class SMTPManager(RComponent):
         Returns:
             A response object indicating the success or failure of the email sending operation.
         """
+
         response = SendAlarmsResponse()
         response.ret.success = False
         response.ret.code = -1
+        response.ret.message = ""
+
+        if self._state != State.READY_STATE:
+            msg = f"The node is not in READY_STATE, current state: {self.state_to_string(self._state)}"
+            rospy.logerr(msg)
+            response.ret.code = self.NOT_READY
+            response.ret.message = msg
+            return response
+        if len(self.email_request_queue) < self.queue_max_len:
+            # Save the incoming request in a FIFO queue for later processing
+            self.email_request_queue.append(req)
+        else:
+            msg = f"Email request queue overflow (>{self.queue_max_len}). The request will not be processed"
+            rospy.logerr(msg)
+            response.ret.code = self.QUEUE_OVERFLOW
+            response.ret.message = msg
+            return response
+            
+
+        response.ret.code = self.SUCCESS
+        response.ret.success = True
+        response.ret.message = "Email request received and will be processed"
+
+        return response
+    
+
+    def process_and_send(self, req):
+        """
+        Sends an email using the configured SMTP server, with optional attachments.
+        Attempts to establish a connection to the SMTP server and send an email constructed from the provided request.
+        If sending with attachments fails due to storage limitations (error code 552), it retries once without attachments.
+        Handles malformed emails and connection errors, and logs relevant information and errors.
+        Args:
+            req: The request object containing email details (such as recipients, subject, body, and attachments).
+        Returns:
+            success (bool), ret_msg (str), ret_code (int): A tuple containing the success status, response code, and message.
+            
+            SUCCESS: If the email is sent successfully.
+            CONNECTION_FAILED: If the SMTP server connection fails, it cannot send the email.
+            MALFORMED_EMAIL: If the email is malformed, it cannot be sent.
+        """
+        
         ret = False
         ret_connection = False
         ret_msg = ''
-        ret_code = 0
+        ret_code = self.SUCCESS
         try_send = True
         send_with_attachments = True
 
-        ret_connection, ret_msg = self.smtp_connection()
+        # try to connect to the SMTP server
+        ret_connection, ret_msg, ret_code = self.smtp_connection()
 
         if ret_connection is True:
 
             while try_send and ret is False:
-
+                # Check if the request is valid
                 email = self.build_email(
                     req, send_with_attachments=send_with_attachments)
 
                 if email is not None:
                     ret, ret_msg, ret_code = self.send_email(email)
                     if ret is True:
-
                         self.logger.loginfo(
                             "Email sent from " + email["From"] + " to " + email["To"], self.logger_tag)
-                        response.ret.success = True
-                        response.ret.code = 0
-                        response.ret.message = ret_msg
-
+                        return True, ret_msg, self.SUCCESS
                     else:
                         # 552: Requested mail action aborted: exceeded storage allocation
                         if ret_code == 552:
                             if send_with_attachments is False:
-                                response.ret.message = f"The email could not be sent: {ret_msg}"
-
+                                ret_msg = f"The email could not be sent: {ret_msg}"
                                 try_send = False
                             else:
                                 # Try once without any attachments
                                 send_with_attachments = False
+                                try_send = True
                         else:
-                            response.ret.message = f"The email could not be sent: {ret_msg}"
+                            ret_msg = f"The email could not be sent: {ret_msg}"
                             try_send = False
 
                 else:
-                    try_send = False
-                    response.ret.message = "The email can not be sent because it is malformed"
+                    return False, "The email can not be sent because it is malformed", self.MALFORMED_EMAIL
 
             try:
                 self.smtp_disconnection()
             except smtplib.SMTPException as e:
                 rospy.logerr(e)
 
-            # if (response.ret.success == True) or (response.ret.code == 0):
-            #    rospy.loginfo(response.ret.message)
-            if (response.ret.success is False) or (response.ret.code != 0):
-                self.logger.logerror(response.ret.message, self.logger_tag)
-
+            
+            self.logger.logerror(ret_msg, self.logger_tag)
+            return False, ret_msg, ret_code
         else:
 
-            response.ret.message = "Cannot connect to SMTP server " + \
+            msg = "Cannot connect to SMTP server " + \
                 str(self.smtp_server) + " with port " + \
                 str(self.smtp_port) + ": " + ret_msg
+            rospy.logerr(msg)
+            return False, msg, ret_code
 
-        return response
 
     def smtp_connection(self):
         """
@@ -323,9 +444,22 @@ class SMTPManager(RComponent):
             A tuple containing:
                 - bool: True if the connection is successfully established, False otherwise.
                 - str: A message indicating the result of the connection attempt.
+                - int: A response code indicating the result of the connection attempt.
         """
 
         ret_msg = 'OK'
+
+        # Validate SMTP server and port
+        if not self.smtp_server or not isinstance(self.smtp_server, str):
+            ret_msg = f"Invalid SMTP server configuration: {self.smtp_server}"
+            rospy.logerr(ret_msg)
+            return False, ret_msg, self.INVALID_CONFIGURATION
+
+        if not self.smtp_port or not isinstance(self.smtp_port, int):
+            ret_msg = f"Invalid SMTP port configuration: {self.smtp_port}"
+            rospy.logerr(ret_msg)
+            return False, ret_msg, self.INVALID_CONFIGURATION
+
         try:
             if self.ssl:
                 rospy.loginfo(
@@ -362,7 +496,7 @@ class SMTPManager(RComponent):
             ret_msg = f"{e}"
             success = False
 
-        return success, ret_msg
+        return success, ret_msg, self.SUCCESS if success else self.CONNECTION_FAILED
 
     def build_email(self, email_data, send_with_attachments=True):
         """
@@ -435,7 +569,7 @@ class SMTPManager(RComponent):
         email.attach(MIMEText(msg, "html"))
 
         # Set the Recipient
-        if '' in email_data.recipients or len(email_data.recipients) == 0:
+        if isinstance(email_data.recipients, list) and ('' in email_data.recipients or len(email_data.recipients) == 0):
             email["To"] = ', '.join(self.default_recipients)
 
         else:
@@ -462,13 +596,24 @@ class SMTPManager(RComponent):
         """
         rospy.loginfo(f"Sending email from {email['From']} to {email['To']}")
         ret_msg = ''
-        ret_code = 0
+        ret_code = self.SUCCESS
+        success = False
+
         try:
-            self.smtp.sendmail(
-                email["From"], email["To"].split(','), email.as_string())
+            recipients = email["To"].split(',')
+            self.smtp.sendmail(email["From"], recipients, email.as_string())
             ret_msg = f"Email sent from {email['From']} to {email['To']}"
             success = True
 
+        except AttributeError as e:
+            
+            ret_code = self.MALFORMED_EMAIL            
+            self.logger.logerror(
+                f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
+            ret_msg = f"Invalid 'To' field format. Expected a comma-separated string: {e}"
+            success = False
+            rospy.logerr(ret_msg)
+            #raise ValueError("Invalid format for 'To' field. Expected a comma-separated string.")
         except smtplib.SMTPResponseException as e:
 
             ret_code = e.smtp_code
@@ -482,7 +627,7 @@ class SMTPManager(RComponent):
                 f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
             ret_msg = f"{e}"
             success = False
-            ret_code = -1
+            ret_code = self.CONNECTION_FAILED
         except smtplib.SMTPException as e:
 
             rospy.logerr(f'errno = {type(e)}')
@@ -490,7 +635,7 @@ class SMTPManager(RComponent):
                 f"smtp_manager::send_email -> Exception: {e}", self.logger_tag)
             ret_msg = f"{e}"
             success = False
-            ret_code = -1
+            ret_code = self.CONNECTION_FAILED
 
         return success, ret_msg, ret_code
 
@@ -510,12 +655,12 @@ class SMTPManager(RComponent):
         for file_to_upload in files_to_upload:
 
             if file_to_upload != '':
-                rospy.loginfo(f'Uploading file: {file_to_upload}')
                 try:
+                    rospy.loginfo(f'Uploading file: {file_to_upload}')
                     with open(file_to_upload, 'rb') as f:
                         attachment_data = f.read()
 
-                    attachment_size = round(len(attachment_data) / 1e6, 3)
+                    attachment_size = round(len(attachment_data) / (1024 * 1024), 3)
                     total_size += attachment_size
                     if total_size < self.max_mail_size:
                         attachment = MIMEApplication(
@@ -546,9 +691,33 @@ class SMTPManager(RComponent):
         Returns:
             bool: True if the disconnection was successful, False otherwise.
         """
-        try:
-            self.smtp.quit()
-        except smtplib.SMTPException as e:
-            rospy.logerr(e)
-            return False
+        if self.smtp:
+            try:
+                self.smtp.quit()
+                self.smtp = None  # Reset the SMTP connection to None after quitting
+            except smtplib.SMTPException as e:
+                rospy.logerr(e)
+                return False
+        else:
+            rospy.logwarn("SMTP connection is already None. No disconnection needed.")
         return True
+
+    def ret_code_to_string(self, code):
+        """
+        Converts a return code into a human-readable string.
+
+        Args:
+            code (int): The return code.
+
+        Returns:
+            str: The string representation of the return code.
+        """
+        code_map = {
+            self.SUCCESS: "Success",
+            self.CONNECTION_FAILED: "Connection failed",
+            self.MALFORMED_EMAIL: "Malformed email",
+            self.QUEUE_OVERFLOW: "Queue overflow",
+            self.INVALID_CONFIGURATION: "Invalid configuration",
+            self.NOT_READY: "Not ready",
+        }
+        return code_map.get(code, f"Unknown code: {code}")

@@ -201,9 +201,9 @@ It sends emails using a SMTP server
    
    Default recipiens if the recipients field is empty when a message is sent.
 
- * **time_between_emails** (int, default: 0):(NOT_IMPLEMENTED_YET)
+ * **time_between_emails** (float, default: 5):
    
-   Time between one email and another to avoid overloads
+   Time (in seconds) between one email and another to avoid overloads
 
  * **include_detailed_info** (bool, default: True.):
     
@@ -212,15 +212,23 @@ It sends emails using a SMTP server
  * **auto_generate_uuid_datetime** (bool, default: True):
     
     Automatically generate the uuid and datetime fields in the email in case it is not provided by the user
+ 
+ * **queue_max_len** (int, default: 1000):
+    
+    Max length of queue where the messages are stored until they are sent
+        
 
 ### 1.2 Published Topics
 
 * ~/state (robotnik_msgs/State):
   Node health
 
+* ~/queue_size (std_msgs/UInt32)
+  Size of the queued messages to be sent
+
 ### 1.3 Services
 * ~/send_email (robotnik_alarms_msgs/SendAlarms)
-The service sends an email to the recipients with the status message and the files to upload.  
+The service queues the email to be sent to the recipients with the status message and the files to upload.  
 Example:
   ```
     rosservice call /smtp_manager/send_email "recipients: ['info@robotnik.es']
