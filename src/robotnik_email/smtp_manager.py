@@ -187,7 +187,7 @@ class SMTPManager(RComponent):
     def ready_state(self):
         """Actions performed in ready state"""
         now = time.time()
-        if now - self.last_queue_log >= 60:
+        if now - self.last_queue_log >= 600:
             pending = self.outbox.count()
             rospy.loginfo("Email outbox: %d message(s) waiting to be sent", pending)
             self.last_queue_log = now
