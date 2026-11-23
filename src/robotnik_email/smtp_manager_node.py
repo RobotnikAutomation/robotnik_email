@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import rospy
-from smtp_manager import SMTPManager
+from robotnik_email.smtp_manager import SMTPManager
 
 
 def main():

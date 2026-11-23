@@ -17,3 +17,8 @@ default_recipients:
 timeout: 30
 time_between_emails: 5
 queue_max_len: 1000
+# Persistent outbox and rate limiting (attempts count toward each batch).
+outbox_path: '~/.ros/robotnik_email/outbox.sqlite3'
+batch_size: 10
+batch_interval: 60
+retry_interval: 60

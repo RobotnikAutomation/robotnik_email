@@ -238,3 +238,30 @@ Example:
     files_to_upload: ['/home/robot/Pictures/camera-1.png', '/home/robot/Pictures/camera-2.png']" 
   ```
   
+### Persistent outbox and delivery limits
+
+`~send_email` confirms that the message has been saved locally, not that SMTP
+has delivered it. Messages and attachment contents are stored in SQLite at
+`~/.ros/robotnik_email/outbox.sqlite3` by default. The node processes pending
+messages in FIFO order, retries failures, and retains sent records and pending
+messages for 30 days from enqueue time. Pending messages continue to be
+retried after outages or restarts until they succeed or reach that age, when
+they are deleted even if they have not been sent. Cleanup runs when the node is ready and then hourly. The database
+contains message contents and should be protected by filesystem permissions.
+
+| Parameter | Default | Meaning |
+|---|---:|---|
+| `outbox_path` | `~/.ros/robotnik_email/outbox.sqlite3` | SQLite database path; use a separate path for each node. |
+| `queue_max_len` | 1000 | Maximum pending messages; sent records do not count. |
+| `time_between_emails` | 5 | Minimum seconds between attempts. |
+| `batch_size` | 10 | Maximum consecutive attempts per batch, including failures. |
+| `batch_interval` | 60 | Minimum seconds after a batch before another attempt. |
+| `retry_interval` | 60 | Minimum seconds before retrying a failed message. |
+
+Rate-limit state survives restarts and uses wall-clock time. A failed message
+blocks later messages until it succeeds or expires. SMTP acceptance cannot
+prove final delivery: a crash or connection loss after server acceptance may
+cause a duplicate on retry. A server that accepts only some recipients can also
+cause duplicates for those recipients on retry. The existing 552 fallback sends
+without attachments. Tune the batch and interval values to the provider's
+limits; they do not guarantee avoidance of spam or block lists.
